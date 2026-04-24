@@ -1,0 +1,4 @@
+TIPO              	LÍNEA 	COLUMNA 	LEXEMA
+-----------------------------------------------------------------------
+ERROR_SINTÁCTICO  	12    	17      	
+ERROR_SINTÁCTICO  	18    	15      	
