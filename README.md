@@ -1,21 +1,21 @@
 
-##Nombre del curso: 
+Nombre del curso: 
     Compiladores e interpretes
     
-##Numero de semestre: 1
+Numero de semestre: 1
 
-##Año lectivo: 2026
+Año lectivo: 2026
 
-##Nombre de los estudiantes: 
+Nombre de los estudiantes: 
     Deiner Céspedes Molina, 
     Yader Siezar Chaves
     
-##Número de carnet de los estudiantes: 
+Número de carnet de los estudiantes: 
     2024242294 (Deiner),
     2024134032 (Yader)
     
-##Número de proyecto programado: #1
+Número de proyecto programado: #1
 
-##Fecha de entrega: 27/04/2026
+Fecha de entrega: 27/04/2026
 
-##Estatus de la entrega: Excelente
+Estatus de la entrega: Excelente
