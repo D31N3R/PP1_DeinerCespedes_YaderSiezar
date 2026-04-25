@@ -1,12 +1,25 @@
+/**
+ * Parser.cup - Analizador Sintáctico
+ * Objetivo:   Verificar que la secuencia de tokens cumple con la gramática del lenguaje.
+ * Entrada:    Tokens del Lexer
+ * Salida:     Consola (válido/errores) y archivos _tokens.txt, _symbols.txt
+ * Restricción: Recuperación en modo pánico ante errores sintácticos.
+ */
+
 import java_cup.runtime.*;
 
 parser code {:
 
-    // ===== CONTADOR DE ERRORES =====
+    /** Contador de errores sintácticos encontrados */
     public int errorCount = 0;
+    
+    /** Nombre de la función actual para nombrar los scopes */
+    private String currentFunc = "main";
 
-    // ===== RECUPERACIÓN DE ERRORES SINTÁCTICOS =====
-
+    /**
+     * Manejo de error sintáctico recuperable.
+     * Reporta el error y continúa el análisis.
+     */
     @Override
     public void syntax_error(Symbol cur_token) {
         errorCount++;
@@ -16,9 +29,12 @@ parser code {:
         System.err.println("Error sintáctico en línea " + line +
                            ", columna " + column +
                            ": token inesperado '" + lexema + "'");
-        Lexer.writeError(line, column, lexema);
     }
 
+    /**
+     * Manejo de error sintáctico irrecuperable.
+     * Reporta el error y detiene el análisis.
+     */
     @Override
     public void unrecovered_syntax_error(Symbol cur_token) throws Exception {
         errorCount++;
@@ -28,38 +44,34 @@ parser code {:
         System.err.println("Error sintáctico irrecuperable en línea " + line +
                            ", columna " + column +
                            ": '" + lexema + "'. Se detiene el análisis.");
-        Lexer.writeError(line, column, lexema);
-        // No relanzar: dejar que CUP maneje el estado interno
     }
 
-    // NOTA: NO se define main() aquí — ese método pertenece a Main.java
 :}
 
 // ===== TERMINALES (tokens del Lexer) =====
 
-// Palabras reservadas
+// Palabras reservadas del lenguaje
 terminal EMPTY, INT, FLOAT, CHAR, BOOL, STRING;
 terminal IF, ELSE, DO, WHILE, SWITCH, CASE, DEFAULT;
 terminal RETURN, BREAK, CIN, COUT;
 terminal MAIN;
 
-// Operadores relacionales (palabras clave)
-terminal EQUAL, N_EQUAL, LESS_T, LESS_TE, GREATER_T, GREATER_TE;
+// Operadores relacionales: equal, n_equal, less_t, less_te, greather_t, greather_te
+terminal EQUAL, N_EQUAL, LESS_T, LESS_TE;
 terminal GREATHER_T, GREATHER_TE;
 
-// Delimitadores y símbolos
-// LPAR = <|   RPAR = |>   (usados tanto en expresiones relacionales como en agrupación)
+// Delimitadores: <| |>, |: :|, << >>, <-, ~, !, ,, :
 terminal LPAR, RPAR, LBLOCK, RBLOCK, LBRACKET, RBRACKET;
-terminal ASSIGN, TILDE, EXCLAMATION, COMMA, COLON;
+terminal ASSIGN, SEPARATOR, EXCLAMATION, COMMA, COLON;
 
-// Operadores aritméticos
+// Operadores aritméticos: +, -, *, /, %, ^
 terminal PLUS, MINUS, TIMES, DIVIDE, MOD, POWER;
 
-// Operadores unarios / lógicos
+// Operadores unarios y lógicos: ++, --, @, #, $
 terminal INCREMENT, DECREMENT;
 terminal AND, OR, NOT;
 
-// Literales
+// Literales con su tipo de dato asociado
 terminal Integer   INT_LIT;
 terminal Float     FLOAT_LIT;
 terminal String    EXP_LIT, FRAC_LIT;
@@ -67,79 +79,112 @@ terminal Boolean   BOOL_LIT;
 terminal Character CHAR_LIT;
 terminal String    STRING_LIT, ID;
 
-// ===== NO TERMINALES =====
+// ===== NO TERMINALES (reglas de la gramática) =====
 non terminal programa, funcion_lista, funcion, main_proc;
 non terminal tipo_retorno, param_lista, param, tipo;
 non terminal bloque, sentencia_lista, sentencia;
 non terminal decl, asig, arr_access, arr_init;
 non terminal control, if_stmt, do_while, switch_stmt;
-non terminal case_lista, case_item;
+non terminal case_lista, case_item, case_items, default_case;
 non terminal return_stmt, io_stmt;
 non terminal expr, expr_log, expr_rel, expr_arit, term, potencia, unario, primario;
 non terminal llamada, arg_lista, literal;
 
-// ===== PRECEDENCIA (menor a mayor) =====
-// Las declaraciones de precedencia resuelven conflictos shift/reduce en CUP;
-// la estructura jerárquica de la gramática ya impone el orden correcto,
-// pero se mantienen aquí como respaldo.
-precedence left OR;
-precedence left AND;
-precedence right NOT;
-precedence left EQUAL, N_EQUAL, LESS_T, LESS_TE, GREATER_T, GREATER_TE, GREATHER_T, GREATHER_TE;
-precedence left PLUS, MINUS;
-precedence left TIMES, DIVIDE, MOD;
-precedence right POWER;
-precedence right INCREMENT, DECREMENT;
+// ===== PRECEDENCIA (de menor a mayor) =====
+// Define el orden de evaluación de operadores
+precedence left OR;             // # (disyunción)
+precedence left AND;            // @ (conjunción)
+precedence right NOT;           // $ (negación)
+precedence left EQUAL, N_EQUAL, LESS_T, LESS_TE, GREATHER_T, GREATHER_TE;
+precedence left PLUS, MINUS;    // +, -
+precedence left TIMES, DIVIDE, MOD; // *, /, %
+precedence right POWER;         // ^ (asociativo derecha)
+precedence right INCREMENT, DECREMENT; // ++, --
 
 // ===== SÍMBOLO INICIAL =====
 start with programa;
 
 // ===== REGLAS GRAMATICALES =====
 
+// Programa: lista de funciones seguida del main, o solo main
 programa ::= funcion_lista main_proc
     | main_proc
     | error
     ;
 
+// Lista de funciones: una o más funciones
 funcion_lista ::= funcion
     | funcion_lista funcion
     ;
 
-// El procedimiento principal: empty ~ __main__ <| |> bloque
-main_proc ::= EMPTY TILDE MAIN LPAR RPAR bloque
-    | EMPTY TILDE MAIN LPAR RPAR error
+// Procedimiento principal: empty ~ __main__ <| |> bloque
+// Crea el scope "main" para la tabla de símbolos
+main_proc ::= EMPTY SEPARATOR MAIN LPAR RPAR 
+    {:
+        currentFunc = "main";
+        Lexer.pushScope("main");
+    :}
+    bloque:b
+    {:
+        Lexer.popScope();
+    :}
+    | EMPTY SEPARATOR MAIN LPAR RPAR error
     ;
 
-funcion ::= tipo_retorno TILDE ID TILDE LPAR param_lista RPAR bloque
-    | tipo_retorno TILDE ID TILDE LPAR RPAR bloque
-    | tipo_retorno TILDE ID TILDE LPAR param_lista RPAR error
-    | tipo_retorno TILDE ID TILDE LPAR RPAR error
+// Función: tipo_retorno ~ nombre ~ <| parámetros |> bloque
+// Crea un scope con el nombre de la función
+funcion ::= tipo_retorno:tr SEPARATOR ID:id LPAR param_lista:pl RPAR 
+    {:
+        currentFunc = id;
+        Lexer.pushScope(id);
+    :}
+    bloque:b
+    {:
+        Lexer.popScope();
+    :}
+    | tipo_retorno:tr SEPARATOR ID:id LPAR RPAR 
+    {:
+        currentFunc = id;
+        Lexer.pushScope(id);
+    :}
+    bloque:b
+    {:
+        Lexer.popScope();
+    :}
+    | tipo_retorno SEPARATOR ID LPAR param_lista RPAR error
+    | tipo_retorno SEPARATOR ID LPAR RPAR error
     ;
 
+// Tipo de retorno de función
 tipo_retorno ::= INT | FLOAT | CHAR | BOOL | STRING
     ;
 
+// Lista de parámetros: separados por coma
 param_lista ::= param
     | param_lista COMMA param
     ;
 
-param ::= tipo TILDE ID
+// Parámetro: tipo ~ identificador
+param ::= tipo SEPARATOR ID
     ;
 
+// Tipos de datos disponibles
 tipo ::= INT | FLOAT | BOOL | CHAR | STRING
     ;
 
-// Bloque |: ... :|  con recuperación interna
+// Bloque de código: |: sentencias :| o vacío |: :|
+// Con recuperación de errores interna
 bloque ::= LBLOCK sentencia_lista RBLOCK
     | LBLOCK RBLOCK
     | LBLOCK error RBLOCK
     ;
 
+// Lista de sentencias: una o más
 sentencia_lista ::= sentencia
     | sentencia_lista sentencia
     ;
 
-// Cada sentencia termina en !  — modo pánico: ante error se descarta hasta !
+// Sentencia: termina con ! (excepto estructuras de control y bloques)
 sentencia ::= decl EXCLAMATION
     | asig EXCLAMATION
     | expr EXCLAMATION
@@ -149,18 +194,22 @@ sentencia ::= decl EXCLAMATION
     | io_stmt EXCLAMATION
     | bloque
     ;
-// ----- Declaraciones -----
-decl ::= tipo TILDE ID
-    | tipo TILDE ID ASSIGN expr
-    | tipo TILDE ID LBRACKET INT_LIT RBRACKET LBRACKET INT_LIT RBRACKET
-    | tipo TILDE ID LBRACKET INT_LIT RBRACKET LBRACKET INT_LIT RBRACKET ASSIGN LBLOCK arr_init RBLOCK
+
+// Declaración de variable o arreglo
+decl ::= tipo SEPARATOR ID
+    | tipo SEPARATOR ID ASSIGN expr
+    | tipo SEPARATOR ID LBRACKET INT_LIT RBRACKET LBRACKET INT_LIT RBRACKET
+    | tipo SEPARATOR ID LBRACKET INT_LIT RBRACKET LBRACKET INT_LIT RBRACKET ASSIGN LBLOCK arr_init RBLOCK
     ;
 
+// Inicialización de arreglo: expresiones separadas por coma, permite sublistas
 arr_init ::= expr
+    | LBLOCK arr_init RBLOCK
     | arr_init COMMA expr
+    | arr_init COMMA LBLOCK arr_init RBLOCK
     ;
 
-// ----- Asignaciones -----
+// Asignación a variable o elemento de arreglo
 asig ::= ID ASSIGN expr
     | arr_access ASSIGN expr
     ;
@@ -169,97 +218,109 @@ asig ::= ID ASSIGN expr
 arr_access ::= ID LBRACKET expr RBRACKET LBRACKET expr RBRACKET
     ;
 
-// ----- Estructuras de control -----
+// Estructuras de control
 control ::= if_stmt
     | do_while
     | switch_stmt
     ;
 
-if_stmt ::= IF TILDE LPAR expr RPAR bloque
-    | IF TILDE LPAR expr RPAR bloque ELSE TILDE bloque
-    | IF TILDE LPAR expr RPAR bloque ELSE TILDE if_stmt
-    | IF TILDE LPAR error RPAR bloque
-    | IF TILDE LPAR error RPAR bloque ELSE TILDE bloque
+// Condicional if / if-else
+if_stmt ::= IF SEPARATOR LPAR expr RPAR bloque
+    | IF SEPARATOR LPAR expr RPAR bloque ELSE SEPARATOR bloque
+    | IF SEPARATOR LPAR error RPAR bloque
+    | IF SEPARATOR LPAR error RPAR bloque ELSE SEPARATOR bloque
     ;
 
-do_while ::= DO TILDE bloque WHILE TILDE LPAR expr RPAR EXCLAMATION
-    | DO TILDE bloque WHILE TILDE LPAR error RPAR EXCLAMATION
+// Bucle do-while: do ~ bloque while ~ <| condición |> !
+do_while ::= DO SEPARATOR bloque WHILE SEPARATOR LPAR expr RPAR EXCLAMATION
+    | DO SEPARATOR bloque WHILE SEPARATOR LPAR error RPAR EXCLAMATION
     ;
 
-switch_stmt ::= SWITCH TILDE LPAR expr RPAR LBLOCK case_lista RBLOCK
-    | SWITCH TILDE LPAR error RPAR LBLOCK case_lista RBLOCK
+// Switch: switch ~ <| expr |> |: cases :|
+switch_stmt ::= SWITCH SEPARATOR LPAR expr RPAR LBLOCK case_lista RBLOCK
+    | SWITCH SEPARATOR LPAR error RPAR LBLOCK case_lista RBLOCK
     ;
 
-case_lista ::= case_item
-    | case_lista case_item
+// Lista de casos: opcionalmente termina con default
+case_lista ::= case_items default_case
+    | case_items
     ;
 
-case_item ::= CASE TILDE literal COLON sentencia_lista
-    | DEFAULT COLON sentencia_lista
+// Secuencia de casos
+case_items ::= case_item
+    | case_items case_item
+    ;
+
+// Un caso: case ~ literal : sentencias
+case_item ::= CASE SEPARATOR literal COLON sentencia_lista
     | error COLON sentencia_lista
     ;
 
-// ----- Return / IO -----
-return_stmt ::= RETURN TILDE expr
+// Caso default: default : sentencias (único, al final)
+default_case ::= DEFAULT COLON sentencia_lista
     ;
 
-io_stmt ::= CIN TILDE ID
-    | COUT TILDE expr
+// Sentencia return: return ~ expresión
+return_stmt ::= RETURN SEPARATOR expr
     ;
 
-// ===== EXPRESIONES =====
-// Jerarquía: expr > expr_log > expr_rel > expr_arit > term > potencia > unario > primario
+// Entrada/Salida: cin ~ id, cout ~ expr
+io_stmt ::= CIN SEPARATOR ID
+    | COUT SEPARATOR expr
+    ;
 
+// ===== EXPRESIONES (jerarquía de precedencia) =====
+
+// Expresión completa
 expr ::= expr_log
     ;
 
-// Expresiones lógicas: conjunción (@) y disyunción (#)
+// Expresiones lógicas: @ (AND), # (OR)
 expr_log ::= expr_log AND expr_rel
-    | expr_log OR  expr_rel
+    | expr_log OR expr_rel
     | expr_rel
     ;
 
-// Expresiones relacionales: equal<|op1,op2|> etc.
-// LPAR = <|  RPAR = |>   — los mismos tokens que agrupación aritmética
-// CAMBIO: equal y n_equal usan expr (no expr_arit) para permitir operandos booleanos
+// Expresiones relacionales: equal, n_equal (boolean), less_t, less_te, greather_t, greather_te
 expr_rel ::= EQUAL      LPAR expr COMMA expr RPAR
     | N_EQUAL            LPAR expr COMMA expr RPAR
     | LESS_T             LPAR expr_arit COMMA expr_arit RPAR
     | LESS_TE            LPAR expr_arit COMMA expr_arit RPAR
-    | GREATER_T          LPAR expr_arit COMMA expr_arit RPAR
-    | GREATER_TE         LPAR expr_arit COMMA expr_arit RPAR
     | GREATHER_T         LPAR expr_arit COMMA expr_arit RPAR
     | GREATHER_TE        LPAR expr_arit COMMA expr_arit RPAR
     | expr_arit
     ;
 
-// Expresiones aritméticas aditivas
-expr_arit ::= expr_arit PLUS  term
+// Expresiones aritméticas: +, -
+expr_arit ::= expr_arit PLUS term
     | expr_arit MINUS term
     | term
     ;
 
-// Multiplicativas / división / módulo
-term ::= term TIMES   potencia
-    | term DIVIDE  potencia
-    | term MOD     potencia
+// Término: *, /, %
+term ::= term TIMES potencia
+    | term DIVIDE potencia
+    | term MOD potencia
     | potencia
     ;
 
-// Potencia (asociativa derecha)
+// Potencia: ^ (asociativa derecha)
 potencia ::= unario POWER potencia
     | unario
     ;
 
-// Operadores unarios: - (negativo), ++id, --id, $ (NOT lógico)
-unario ::= MINUS primario
+// Operadores unarios: - (solo literales), ++, --, $ (NOT)
+unario ::= MINUS INT_LIT
+    | MINUS FLOAT_LIT
+    | MINUS EXP_LIT
+    | MINUS FRAC_LIT
     | INCREMENT ID
     | DECREMENT ID
     | NOT primario
     | primario
     ;
 
-// Primario: literal, variable, acceso a arreglo, llamada a función, agrupación
+// Elemento primario: literal, variable, arreglo, función, agrupación
 primario ::= literal
     | ID
     | arr_access
@@ -268,15 +329,16 @@ primario ::= literal
     ;
 
 // Llamada a función: id ~ <| args |>
-llamada ::= ID TILDE LPAR arg_lista RPAR
-    | ID TILDE LPAR RPAR
+llamada ::= ID LPAR arg_lista RPAR
+    | ID LPAR RPAR
     ;
 
+// Lista de argumentos: expresiones separadas por coma
 arg_lista ::= expr
     | arg_lista COMMA expr
     ;
 
-// Literales reconocidos
+// Literales reconocidos por el lenguaje
 literal ::= INT_LIT
     | FLOAT_LIT
     | EXP_LIT

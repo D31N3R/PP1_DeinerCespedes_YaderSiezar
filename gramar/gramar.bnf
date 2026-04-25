@@ -1,0 +1,235 @@
+// ===== ESTRUCTURA DEL PROGRAMA =====
+
+<programa>            ::= <funcion_lista> <main_proc>
+                        | <main_proc>
+                        | error
+
+<funcion_lista>       ::= <funcion>
+                        | <funcion_lista> <funcion>
+
+<main_proc>           ::= EMPTY SEPARATOR MAIN LPAR RPAR <bloque>
+                        | EMPTY SEPARATOR MAIN LPAR RPAR error
+
+<funcion>             ::= <tipo_retorno> SEPARATOR ID SEPARATOR LPAR <param_lista> RPAR <bloque>
+                        | <tipo_retorno> SEPARATOR ID SEPARATOR LPAR RPAR <bloque>
+                        | <tipo_retorno> SEPARATOR ID SEPARATOR LPAR <param_lista> RPAR error
+                        | <tipo_retorno> SEPARATOR ID SEPARATOR LPAR RPAR error
+
+<tipo_retorno>        ::= INT | FLOAT | CHAR | BOOL | STRING
+
+<param_lista>         ::= <param>
+                        | <param_lista> COMMA <param>
+
+<param>               ::= <tipo> SEPARATOR ID
+
+<tipo>                ::= INT | FLOAT | BOOL | CHAR | STRING
+
+// ===== BLOQUES Y SENTENCIAS =====
+
+<bloque>              ::= LBLOCK <sentencia_lista> RBLOCK
+                        | LBLOCK RBLOCK
+                        | LBLOCK error RBLOCK
+
+<sentencia_lista>     ::= <sentencia>
+                        | <sentencia_lista> <sentencia>
+
+<sentencia>           ::= <decl> EXCLAMATION
+                        | <asig> EXCLAMATION
+                        | <expr> EXCLAMATION
+                        | <control>
+                        | <return_stmt> EXCLAMATION
+                        | BREAK EXCLAMATION
+                        | <io_stmt> EXCLAMATION
+                        | <bloque>
+
+// ===== DECLARACIONES =====
+
+<decl>                ::= <tipo> SEPARATOR ID
+                        | <tipo> SEPARATOR ID ASSIGN <expr>
+                        | <tipo> SEPARATOR ID LBRACKET INT_LIT RBRACKET LBRACKET INT_LIT RBRACKET
+                        | <tipo> SEPARATOR ID LBRACKET INT_LIT RBRACKET LBRACKET INT_LIT RBRACKET ASSIGN LBLOCK <arr_init> RBLOCK
+
+<arr_init>            ::= <expr>
+                        | LBLOCK <arr_init> RBLOCK
+                        | <arr_init> COMMA <expr>
+                        | <arr_init> COMMA LBLOCK <arr_init> RBLOCK
+
+// ===== ASIGNACIONES =====
+
+<asig>                ::= ID ASSIGN <expr>
+                        | <arr_access> ASSIGN <expr>
+
+<arr_access>          ::= ID LBRACKET <expr> RBRACKET LBRACKET <expr> RBRACKET
+
+// ===== ESTRUCTURAS DE CONTROL =====
+
+<control>             ::= <if_stmt>
+                        | <do_while>
+                        | <switch_stmt>
+
+<if_stmt>             ::= IF SEPARATOR LPAR <expr> RPAR <bloque>
+                        | IF SEPARATOR LPAR <expr> RPAR <bloque> ELSE SEPARATOR <bloque>
+                        | IF SEPARATOR LPAR error RPAR <bloque>
+                        | IF SEPARATOR LPAR error RPAR <bloque> ELSE SEPARATOR <bloque>
+
+<do_while>            ::= DO SEPARATOR <bloque> WHILE SEPARATOR LPAR <expr> RPAR EXCLAMATION
+                        | DO SEPARATOR <bloque> WHILE SEPARATOR LPAR error RPAR EXCLAMATION
+
+<switch_stmt>         ::= SWITCH SEPARATOR LPAR <expr> RPAR LBLOCK <case_lista> RBLOCK
+                        | SWITCH SEPARATOR LPAR error RPAR LBLOCK <case_lista> RBLOCK
+
+<case_lista>          ::= <case_items> <default_case>
+                        | <case_items>
+
+<case_items>          ::= <case_item>
+                        | <case_items> <case_item>
+
+<case_item>           ::= CASE SEPARATOR <literal> COLON <sentencia_lista>
+                        | error COLON <sentencia_lista>
+
+<default_case>        ::= DEFAULT COLON <sentencia_lista>
+
+// ===== RETURN E IO =====
+
+<return_stmt>         ::= RETURN SEPARATOR <expr>
+
+<io_stmt>             ::= CIN SEPARATOR ID
+                        | COUT SEPARATOR <expr>
+
+// ===== EXPRESIONES =====
+
+<expr>                ::= <expr_log>
+
+<expr_log>            ::= <expr_log> AND <expr_rel>
+                        | <expr_log> OR <expr_rel>
+                        | <expr_rel>
+
+<expr_rel>            ::= EQUAL LPAR <expr> COMMA <expr> RPAR
+                        | N_EQUAL LPAR <expr> COMMA <expr> RPAR
+                        | LESS_T LPAR <expr_arit> COMMA <expr_arit> RPAR
+                        | LESS_TE LPAR <expr_arit> COMMA <expr_arit> RPAR
+                        | GREATHER_T LPAR <expr_arit> COMMA <expr_arit> RPAR
+                        | GREATHER_TE LPAR <expr_arit> COMMA <expr_arit> RPAR
+                        | <expr_arit>
+
+<expr_arit>           ::= <expr_arit> PLUS <term>
+                        | <expr_arit> MINUS <term>
+                        | <term>
+
+<term>                ::= <term> TIMES <potencia>
+                        | <term> DIVIDE <potencia>
+                        | <term> MOD <potencia>
+                        | <potencia>
+
+<potencia>            ::= <unario> POWER <potencia>
+                        | <unario>
+
+<unario>              ::= MINUS <int_lit>
+                        | MINUS <float_lit>
+                        | MINUS <exp_lit>
+                        | MINUS <frac_lit>
+                        | INCREMENT ID
+                        | DECREMENT ID
+                        | NOT <primario>
+                        | <primario>
+
+<primario>            ::= <literal>
+                        | ID
+                        | <arr_access>
+                        | <llamada>
+                        | LPAR <expr> RPAR
+
+<llamada>             ::= ID SEPARATOR LPAR <arg_lista> RPAR
+                        | ID SEPARATOR LPAR RPAR
+
+<arg_lista>           ::= <expr>
+                        | <arg_lista> COMMA <expr>
+
+<literal>             ::= <int_lit>
+                        | <float_lit>
+                        | <exp_lit>
+                        | <frac_lit>
+                        | <bool_lit>
+                        | <char_lit>
+                        | <string_lit>
+
+// ===== DEFINICIONES LÉXICAS (TOKENS) =====
+
+// --- Palabras reservadas ---
+EMPTY                 ::= "empty"
+INT                   ::= "int"
+FLOAT                 ::= "float"
+CHAR                  ::= "char"
+BOOL                  ::= "bool"
+STRING                ::= "string"
+IF                    ::= "if"
+ELSE                  ::= "else"
+DO                    ::= "do"
+WHILE                 ::= "while"
+SWITCH                ::= "switch"
+CASE                  ::= "case"
+DEFAULT               ::= "default"
+RETURN                ::= "return"
+BREAK                 ::= "break"
+CIN                   ::= "cin"
+COUT                  ::= "cout"
+MAIN                  ::= "__main__"
+
+// --- Símbolos delimitadores ---
+LPAR                  ::= "<|"       // LEFT_PARENTHESIS   - inicio de parámetros / agrupación
+RPAR                  ::= "|>"       // RIGHT_PARENTHESIS  - fin de parámetros / agrupación
+LBLOCK                ::= "|:"       // LEFT_BLOCK         - inicio de bloque de código
+RBLOCK                ::= ":|"       // RIGHT_BLOCK        - fin de bloque de código
+LBRACKET              ::= "<<"       // LEFT_BRACKET       - inicio de índice de arreglo
+RBRACKET              ::= ">>"       // RIGHT_BRACKET      - fin de índice de arreglo
+
+// --- Símbolos de puntuación ---
+ASSIGN                ::= "<-"       // ASSIGNMENT         - asignación de valor
+SEPARATOR             ::= "~"        // SEPARATOR          - separador entre tipo e id, función y parámetros
+EXCLAMATION           ::= "!"        // EXCLAMATION        - fin de sentencia
+COMMA                 ::= ","        // COMMA              - separador de parámetros y argumentos
+COLON                 ::= ":"        // COLON              - separador de case/default
+
+// --- Operadores aritméticos ---
+PLUS                  ::= "+"        // PLUS               - suma
+MINUS                 ::= "-"        // MINUS              - resta / negativo unario
+TIMES                 ::= "*"        // TIMES              - multiplicación
+DIVIDE                ::= "/"        // DIVIDE             - división
+MOD                   ::= "%"        // MOD                - módulo
+POWER                 ::= "^"        // POWER              - potencia (asociativa derecha)
+
+// --- Operadores unarios ---
+INCREMENT             ::= "++"       // INCREMENT          - incremento preorden
+DECREMENT             ::= "--"       // DECREMENT          - decremento preorden
+
+// --- Operadores lógicos ---
+AND                   ::= "@"        // AND                - conjunción lógica
+OR                    ::= "#"        // OR                 - disyunción lógica
+NOT                   ::= "$"        // NOT                - negación lógica
+
+// --- Operadores relacionales ---
+EQUAL                 ::= "equal"       // EQUAL            - igualdad (permite booleanos)
+N_EQUAL               ::= "n_equal"     // NOT_EQUAL        - desigualdad (permite booleanos)
+LESS_T                ::= "less_t"      // LESS_THAN        - menor que
+LESS_TE               ::= "less_te"     // LESS_THAN_EQUAL  - menor o igual que
+GREATHER_T            ::= "greather_t"  // GREATER_THAN     - mayor que
+GREATHER_TE           ::= "greather_te" // GREATER_THAN_EQUAL - mayor o igual que
+
+// --- Identificador ---
+ID                    ::= [a-zA-Z_][a-zA-Z0-9_]*
+
+// --- Literales ---
+INT_LIT               ::= [0-9]+
+FLOAT_LIT             ::= [0-9]+\.[0-9]+
+EXP_LIT               ::= [0-9]+[eE][1-9][0-9]*
+FRAC_LIT              ::= [0-9]+//[0-9]+
+BOOL_LIT              ::= "true" | "false"
+CHAR_LIT              ::= '([^\']|\\\')'
+STRING_LIT            ::= "[^"]*"
+
+// --- Comentarios (ignorados por el Lexer) ---
+COMENTARIO_LINEA      ::= "¡¡"[^\r\n]*
+COMENTARIO_BLOQUE     ::= "{-" .* "-}"
+
+// --- Espacios (ignorados por el Lexer) ---
+WHITESPACE            ::= [ \t\f\r\n]+
